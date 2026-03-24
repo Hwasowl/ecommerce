@@ -37,3 +37,7 @@ management:
 logging:
   level:
     org.hibernate.SQL: debug
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html

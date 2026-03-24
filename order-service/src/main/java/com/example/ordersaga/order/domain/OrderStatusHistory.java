@@ -28,7 +28,7 @@ public class OrderStatusHistory {
     private String orderId;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 30)
+    @Column(length = 30)
     private OrderStatus fromStatus;
 
     @Enumerated(EnumType.STRING)
@@ -78,3 +78,4 @@ public class OrderStatusHistory {
             .build();
     }
 }
+
