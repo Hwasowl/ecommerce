@@ -1,0 +1,5 @@
+rootProject.name = 'order-payment-inventory-msa'
+
+include 'order-service'
+include 'payment-service'
+include 'inventory-service'

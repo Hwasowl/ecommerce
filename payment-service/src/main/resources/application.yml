@@ -1,0 +1,39 @@
+spring:
+  application:
+    name: payment-service
+  datasource:
+    url: jdbc:h2:mem:paymentdb;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+    open-in-view: false
+  kafka:
+    bootstrap-servers: localhost:9092
+
+server:
+  port: 8082
+
+external:
+  toss-payments:
+    base-url: https://api.tosspayments.com
+    client-key: test_client_key
+    secret-key: test_secret_key
+    webhook-secret: test_webhook_secret
+    success-url: http://localhost:3000/payments/success
+    fail-url: http://localhost:3000/payments/fail
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+
+logging:
+  level:
+    org.hibernate.SQL: debug
