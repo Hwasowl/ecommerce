@@ -79,7 +79,6 @@ public class Payment extends BaseTimeEntity {
     public static Payment pending(
         String paymentId,
         String orderId,
-        String pgProvider,
         BigDecimal amount,
         String currency
     ) {
