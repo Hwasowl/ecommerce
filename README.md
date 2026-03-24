@@ -1,7 +1,9 @@
-# Order Payment Inventory MSA
+# E-commerce
 
-`Java 17 + Spring Boot 3 + Spring Data JPA` 기준의 주문, 결제, 재고 서비스 골격입니다.  
-외부 결제는 `Toss Payments`, 서비스 간 비동기 연동은 `Kafka`, 데이터 정합성은 `Saga + Outbox/Inbox + Idempotency`를 전제로 설계합니다.
+이커머스 환경에서 발생할 수 있는 주문 생성, 외부 결제 연동, 재고 차감, 이벤트 유실 방지 문제를 직접 다루기 위해 만든 프로젝트입니다.  
+결제 성공 이후 재고 확보에 실패하는 부분 실패 상황, 메시지 브로커 장애로 인한 후속 처리 지연, 중복 웹훅과 중복 이벤트 소비 같은 문제를 전제로 두고 설계했습니다.  
+
+주문, 결제, 재고를 각각 분리된 서비스로 나누고, `PG 결제(Toss Payments)`, `Kafka`, `Saga`, `Outbox/Inbox`, `Idempotency`를 통해 분산 트랜잭션과 장애 복구 전략을 검증하는 것을 목표로 합니다.
 
 ## 구성
 
@@ -309,34 +311,107 @@ erDiagram
     }
 ```
 
-## 실행
+## Kafka 및 장애 대응
 
-프로젝트 루트의 Gradle Wrapper를 사용합니다.
+이 프로젝트는 Kafka가 항상 정상이라는 가정으로 설계하지 않습니다.  
+결제 웹훅을 받은 뒤 `어디까지 저장되었는지`, `어디서 장애가 났는지`에 따라 응답 방식과 복구 전략을 다르게 가져갑니다.
 
-```bash
-./gradlew :order-service:bootRun
-./gradlew :payment-service:bootRun
-./gradlew :inventory-service:bootRun
+### 1. Kafka 장애
+
+Kafka만 죽어 있고 DB는 정상인 경우입니다.  
+이때는 결제 상태와 Outbox 이벤트를 DB에 먼저 저장할 수 있으므로, 웹훅에 `200 OK`를 반환해도 유실되지 않습니다. Kafka 복구 후 Outbox Relay가 이벤트를 재발행합니다.
+
+```mermaid
+sequenceDiagram
+    participant TossPayments
+    participant PaymentService
+    participant PaymentDB
+    participant Outbox
+    participant Kafka
+    participant OutboxRelay
+
+    TossPayments->>PaymentService: webhook(status=SUCCESS)
+    PaymentService->>PaymentDB: payment CONFIRMED 저장
+    PaymentService->>Outbox: PaymentConfirmed 저장
+    PaymentService-->>TossPayments: 200 OK
+
+    PaymentService->>Kafka: 즉시 발행 시도
+    Kafka-->>PaymentService: Kafka 장애
+
+    Note over Kafka: Kafka 복구 후
+    OutboxRelay->>Outbox: 미전송 이벤트 조회
+    OutboxRelay->>Kafka: PaymentConfirmed 재발행
 ```
 
-Windows PowerShell:
+### 2. DB 장애
 
-```powershell
-.\gradlew.bat :order-service:bootRun
-.\gradlew.bat :payment-service:bootRun
-.\gradlew.bat :inventory-service:bootRun
+Kafka는 살아 있어도 DB가 죽어 있으면 결제 상태를 신뢰성 있게 저장할 수 없습니다.  
+이 경우에는 이벤트를 먼저 발행하지 않고, 웹훅에 `5xx`를 반환해서 Toss Payments가 동일한 웹훅을 다시 보내도록 유도해야 합니다.
+
+```mermaid
+sequenceDiagram
+    participant TossPayments
+    participant PaymentService
+    participant PaymentDB
+    participant Kafka
+
+    TossPayments->>PaymentService: webhook(status=SUCCESS)
+    PaymentService->>PaymentDB: payment 저장 시도
+    PaymentDB-->>PaymentService: DB 장애
+
+    Note over PaymentService: DB 저장 실패 상태에서는 진행 중단
+    Note over PaymentService: Kafka가 살아 있어도 이벤트 선발행 금지
+
+    PaymentService-->>TossPayments: 5xx 응답
+    Note over TossPayments: 동일 webhook 재전송
 ```
 
-## 현재 구현 범위
+### 3. DB + Kafka 전체 장애
 
-- 멀티모듈 Gradle 구조
-- 서비스별 Spring Boot 3 설정
-- 서비스별 JPA 엔티티 및 Repository
-- Toss Payments 웹훅 엔드포인트의 최소 골격
+DB와 Kafka가 동시에 죽어 있으면 내부에 결제 성공 사실을 남길 수 없습니다.  
+이 상황에서는 성공 응답을 주지 않고 `5xx`를 반환한 뒤, 외부 PG의 웹훅 재시도 정책을 최후 안전장치로 사용합니다.
 
-## 다음 구현 후보
+```mermaid
+sequenceDiagram
+    participant TossPayments
+    participant PaymentService
+    participant PaymentDB
+    participant Kafka
 
-- 주문 생성 API와 상태 전이 서비스
-- Toss 결제 승인 API 연동 클라이언트
-- Kafka 이벤트 발행과 인박스/아웃박스 릴레이
-- 보상 트랜잭션 서비스와 테스트
+    TossPayments->>PaymentService: webhook(status=SUCCESS)
+    PaymentService->>PaymentDB: payment 저장 시도
+    PaymentDB-->>PaymentService: DB 장애
+    PaymentService->>Kafka: 이벤트 발행 시도
+    Kafka-->>PaymentService: Kafka 장애
+
+    PaymentService-->>TossPayments: 5xx 응답
+    Note over TossPayments: PG 재시도 정책에 따라 동일 webhook 재전송
+```
+
+복구 이후에는 재전송된 웹훅을 다시 받아서 `payment 저장 -> outbox 저장 -> kafka 발행` 순서로 정상 처리합니다.
+
+```mermaid
+sequenceDiagram
+    participant TossPayments
+    participant PaymentService
+    participant PaymentDB
+    participant Outbox
+    participant Kafka
+
+    Note over PaymentDB,Kafka: DB와 Kafka 복구 완료
+
+    TossPayments->>PaymentService: 동일 webhook 재전송
+    PaymentService->>PaymentDB: payment CONFIRMED 저장
+    PaymentService->>Outbox: PaymentConfirmed 저장
+    PaymentService-->>TossPayments: 200 OK
+
+    Outbox->>Kafka: PaymentConfirmed 발행
+```
+
+### 장애 대응 원칙
+
+- `DB 저장이 끝나기 전에는 200 OK를 반환하지 않는다.`
+- `Kafka만 장애인 경우에는 Outbox에 저장되었는지 확인한 뒤 200 OK를 반환한다.`
+- `DB가 장애인 경우에는 Kafka가 살아 있어도 이벤트를 먼저 발행하지 않는다.`
+- `DB와 Kafka가 모두 장애인 경우에는 PG 웹훅 재시도를 최후 안전장치로 사용한다.`
+- `Kafka 소비 측은 Inbox와 eventId 기반 멱등성으로 중복 처리를 막는다.`
