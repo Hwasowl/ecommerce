@@ -15,9 +15,19 @@ spring:
     open-in-view: false
   kafka:
     bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
 
 server:
   port: 8082
+
+payment:
+  outbox:
+    relay-fixed-delay-ms: 5000
+  kafka:
+    topics:
+      payment-confirmed: payment.confirmed
 
 external:
   toss-payments:
