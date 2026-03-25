@@ -15,6 +15,9 @@ spring:
     open-in-view: false
   kafka:
     bootstrap-servers: localhost:9092
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
@@ -28,6 +31,9 @@ payment:
   kafka:
     topics:
       payment-confirmed: payment.confirmed
+      inventory-failed: inventory.failed
+      payment-compensated: payment.compensated
+      payment-group-id: payment-service-group
 
 external:
   toss-payments:

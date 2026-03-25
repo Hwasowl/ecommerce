@@ -34,6 +34,9 @@ public class PaymentCompensation {
     @Column(nullable = false, length = 50)
     private String orderId;
 
+    @Column(nullable = false, unique = true, length = 100)
+    private String sourceEventId;
+
     @Column(nullable = false, length = 30)
     private String compensationType;
 
@@ -57,6 +60,7 @@ public class PaymentCompensation {
         String compensationId,
         String paymentId,
         String orderId,
+        String sourceEventId,
         String compensationType,
         CompensationStatus status,
         BigDecimal amount,
@@ -66,6 +70,7 @@ public class PaymentCompensation {
         this.compensationId = compensationId;
         this.paymentId = paymentId;
         this.orderId = orderId;
+        this.sourceEventId = sourceEventId;
         this.compensationType = compensationType;
         this.status = status;
         this.amount = amount;
@@ -77,6 +82,7 @@ public class PaymentCompensation {
         String compensationId,
         String paymentId,
         String orderId,
+        String sourceEventId,
         String compensationType,
         BigDecimal amount,
         String reason
@@ -85,6 +91,7 @@ public class PaymentCompensation {
             .compensationId(compensationId)
             .paymentId(paymentId)
             .orderId(orderId)
+            .sourceEventId(sourceEventId)
             .compensationType(compensationType)
             .status(CompensationStatus.REQUESTED)
             .amount(amount)

@@ -4,6 +4,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "payment.kafka.topics")
 public record PaymentKafkaTopicsProperties(
-    String paymentConfirmed
+    String paymentConfirmed,
+    String inventoryFailed,
+    String paymentCompensated,
+    String paymentGroupId
 ) {
 }
