@@ -15,9 +15,19 @@ spring:
     open-in-view: false
   kafka:
     bootstrap-servers: localhost:9092
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
 
 server:
   port: 8081
+
+order:
+  kafka:
+    topics:
+      inventory-reserved: inventory.reserved
+      payment-compensated: payment.compensated
+      order-group-id: order-service-group
 
 management:
   endpoints:

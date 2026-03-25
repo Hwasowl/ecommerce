@@ -3,9 +3,14 @@ package com.example.ordersaga.order.application;
 import com.example.ordersaga.order.application.dto.CreateOrderItemRequest;
 import com.example.ordersaga.order.application.dto.CreateOrderRequest;
 import com.example.ordersaga.order.application.dto.CreateOrderResponse;
+import com.example.ordersaga.order.application.dto.InventoryReservedEvent;
+import com.example.ordersaga.order.application.dto.PaymentCompensatedEvent;
 import com.example.ordersaga.order.domain.Order;
+import com.example.ordersaga.order.domain.OrderStatus;
 import com.example.ordersaga.order.domain.OrderItem;
 import com.example.ordersaga.order.domain.OrderStatusHistory;
+import com.example.ordersaga.order.exception.BusinessException;
+import com.example.ordersaga.order.exception.ErrorCode;
 import com.example.ordersaga.order.repository.OrderRepository;
 import com.example.ordersaga.order.repository.OrderStatusHistoryRepository;
 import java.math.BigDecimal;
@@ -35,6 +40,44 @@ public class OrderService {
         orderStatusHistoryRepository.save(OrderStatusHistory.of(orderId, null, order.getStatus(), "ORDER_CREATED", null));
 
         return new CreateOrderResponse(order.getOrderId(), order.getStatus(), order.getTotalAmount(), order.getCurrency());
+    }
+
+    @Transactional
+    public void handleInventoryReserved(InventoryReservedEvent event) {
+        Order order = orderRepository.findByOrderId(event.orderId())
+            .orElseThrow(() -> new BusinessException(
+                ErrorCode.ORDER_NOT_FOUND,
+                "주문 정보를 찾을 수 없습니다. orderId=" + event.orderId()
+            ));
+
+        OrderStatus fromStatus = order.getStatus();
+        order.markPaid();
+        orderStatusHistoryRepository.save(OrderStatusHistory.of(
+            order.getOrderId(),
+            fromStatus,
+            order.getStatus(),
+            "INVENTORY_RESERVED",
+            event.eventId()
+        ));
+    }
+
+    @Transactional
+    public void handlePaymentCompensated(PaymentCompensatedEvent event) {
+        Order order = orderRepository.findByOrderId(event.orderId())
+            .orElseThrow(() -> new BusinessException(
+                ErrorCode.ORDER_NOT_FOUND,
+                "주문 정보를 찾을 수 없습니다. orderId=" + event.orderId()
+            ));
+
+        OrderStatus fromStatus = order.getStatus();
+        order.markFailed();
+        orderStatusHistoryRepository.save(OrderStatusHistory.of(
+            order.getOrderId(),
+            fromStatus,
+            order.getStatus(),
+            "PAYMENT_COMPENSATED",
+            event.eventId()
+        ));
     }
 
     private OrderItem toOrderItem(CreateOrderItemRequest item) {
