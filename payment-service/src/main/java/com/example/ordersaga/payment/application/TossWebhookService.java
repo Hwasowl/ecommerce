@@ -1,5 +1,6 @@
 package com.example.ordersaga.payment.application;
 
+import com.example.ordersaga.payment.application.dto.PaymentConfirmedEvent;
 import com.example.ordersaga.payment.application.dto.TossWebhookRequest;
 import com.example.ordersaga.payment.domain.Payment;
 import com.example.ordersaga.payment.domain.PaymentOutbox;
@@ -9,6 +10,9 @@ import com.example.ordersaga.payment.exception.ErrorCode;
 import com.example.ordersaga.payment.repository.PaymentOutboxRepository;
 import com.example.ordersaga.payment.repository.PaymentRepository;
 import com.example.ordersaga.payment.repository.PaymentWebhookRepository;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +24,7 @@ public class TossWebhookService {
     private final PaymentRepository paymentRepository;
     private final PaymentWebhookRepository paymentWebhookRepository;
     private final PaymentOutboxRepository paymentOutboxRepository;
+    private final ObjectMapper objectMapper;
 
     @Transactional
     public void handle(String signature, TossWebhookRequest request) {
@@ -51,11 +56,40 @@ public class TossWebhookService {
             "PAYMENT",
             payment.getPaymentId(),
             "PaymentConfirmed",
-            request.rawPayload() == null ? "{}" : request.rawPayload()
+            toPaymentConfirmedPayload(request, payment)
         ));
         webhook.markCompleted();
         paymentRepository.save(payment);
         paymentWebhookRepository.save(webhook);
+    }
+
+    private String toPaymentConfirmedPayload(TossWebhookRequest request, Payment payment) {
+        PaymentConfirmedEvent event = new PaymentConfirmedEvent(
+            request.eventId(),
+            "PaymentConfirmed",
+            LocalDateTime.now(),
+            payment.getOrderId(),
+            payment.getPaymentId(),
+            request.paymentKey(),
+            payment.getCustomerId(),
+            payment.getAmount(),
+            payment.getCurrency(),
+            payment.getOrderName(),
+            payment.getItemSnapshots().stream()
+                .map(item -> new PaymentConfirmedEvent.PaymentConfirmedItem(
+                    item.getProductId(),
+                    item.getProductName(),
+                    item.getQuantity(),
+                    item.getUnitPrice(),
+                    item.getLineAmount()
+                ))
+                .toList()
+        );
+        try {
+            return objectMapper.writeValueAsString(event);
+        } catch (JsonProcessingException ex) {
+            throw new IllegalStateException("결제 확정 이벤트 페이로드 직렬화에 실패했습니다.", ex);
+        }
     }
 }
 

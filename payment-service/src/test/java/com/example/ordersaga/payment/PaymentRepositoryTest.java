@@ -24,7 +24,7 @@ class PaymentRepositoryTest {
     @Test
     @DisplayName("paymentId로 결제를 조회할 수 있다.")
     void findPaymentByPaymentId() {
-        paymentRepository.save(Payment.pending("PAY-REPO-1", "ORD-REPO-1", BigDecimal.valueOf(10000), "KRW"));
+        paymentRepository.save(Payment.pending("PAY-REPO-1", "ORD-REPO-1", 1L, BigDecimal.valueOf(10000), "KRW", "테스트 주문"));
 
         assertThat(paymentRepository.findByPaymentId("PAY-REPO-1")).isPresent();
     }

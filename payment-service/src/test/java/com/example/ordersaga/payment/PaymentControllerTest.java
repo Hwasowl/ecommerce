@@ -56,9 +56,18 @@ class PaymentControllerTest {
         String requestBody = """
             {
               "orderId": "ORD-1001",
+              "customerId": 1,
               "amount": 130000,
               "currency": "KRW",
-              "orderName": "무선 키보드"
+              "orderName": "무선 키보드",
+              "items": [
+                {
+                  "productId": 101,
+                  "productName": "keyboard",
+                  "quantity": 2,
+                  "unitPrice": 65000
+                }
+              ]
             }
             """;
 
@@ -78,9 +87,18 @@ class PaymentControllerTest {
         String requestBody = """
             {
               "orderId": "",
+              "customerId": 1,
               "amount": 130000,
               "currency": "KRW",
-              "orderName": "무선 키보드"
+              "orderName": "무선 키보드",
+              "items": [
+                {
+                  "productId": 101,
+                  "productName": "keyboard",
+                  "quantity": 2,
+                  "unitPrice": 65000
+                }
+              ]
             }
             """;
 
@@ -99,9 +117,18 @@ class PaymentControllerTest {
         String requestBody = """
             {
               "orderId": "ORD-1001",
+              "customerId": 1,
               "amount": -1,
               "currency": "KRW",
-              "orderName": "무선 키보드"
+              "orderName": "무선 키보드",
+              "items": [
+                {
+                  "productId": 101,
+                  "productName": "keyboard",
+                  "quantity": 2,
+                  "unitPrice": 65000
+                }
+              ]
             }
             """;
 
