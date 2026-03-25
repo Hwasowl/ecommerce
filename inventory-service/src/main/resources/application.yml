@@ -15,6 +15,12 @@ spring:
     open-in-view: false
   kafka:
     bootstrap-servers: localhost:9092
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
   data:
     redis:
       host: localhost
@@ -26,6 +32,12 @@ server:
 inventory:
   redis:
     stock-key-prefix: inventory:stock
+  kafka:
+    topics:
+      payment-confirmed: payment.confirmed
+      inventory-reserved: inventory.reserved
+      inventory-failed: inventory.failed
+      inventory-group-id: inventory-service-group
 
 management:
   endpoints:
