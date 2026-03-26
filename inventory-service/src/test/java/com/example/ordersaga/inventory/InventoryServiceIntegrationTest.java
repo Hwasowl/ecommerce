@@ -30,6 +30,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 class InventoryServiceIntegrationTest {
 
+    private static final long KEYBOARD_PRODUCT_ID = 5101L;
+    private static final long MOUSE_PRODUCT_ID = 5102L;
+
     @Autowired
     private InventoryService inventoryService;
 
@@ -59,13 +62,13 @@ class InventoryServiceIntegrationTest {
     @Test
     @DisplayName("결제 확정 이벤트를 처리하면 재고 예약 결과와 이력을 저장한다.")
     void handlePaymentConfirmedSuccessfully() {
-        inventoryRepository.save(Inventory.of(101L, 10));
-        inventoryRepository.save(Inventory.of(102L, 5));
+        inventoryRepository.save(Inventory.of(KEYBOARD_PRODUCT_ID, 10));
+        inventoryRepository.save(Inventory.of(MOUSE_PRODUCT_ID, 5));
 
         when(inventoryStockStore.reserve(anyList())).thenReturn(
             InventoryStockStore.ReservationAttempt.success(List.of(
-                new InventoryStockStore.ReservedStock(101L, 2, 10, 8),
-                new InventoryStockStore.ReservedStock(102L, 1, 5, 4)
+                new InventoryStockStore.ReservedStock(KEYBOARD_PRODUCT_ID, 2, 10, 8),
+                new InventoryStockStore.ReservedStock(MOUSE_PRODUCT_ID, 1, 5, 4)
             ))
         );
 
@@ -79,15 +82,15 @@ class InventoryServiceIntegrationTest {
         assertThat(inventoryInboxRepository.findAll().get(0).getProcessStatus()).isEqualTo(InboxProcessStatus.PROCESSED);
         assertThat(inventoryReservationRepository.findAll()).hasSize(2);
         assertThat(inventoryTransactionRepository.findAll()).hasSize(2);
-        assertThat(inventoryRepository.findByProductId(101L).orElseThrow().getAvailableStock()).isEqualTo(8);
-        assertThat(inventoryRepository.findByProductId(102L).orElseThrow().getAvailableStock()).isEqualTo(4);
+        assertThat(inventoryRepository.findByProductId(KEYBOARD_PRODUCT_ID).orElseThrow().getAvailableStock()).isEqualTo(8);
+        assertThat(inventoryRepository.findByProductId(MOUSE_PRODUCT_ID).orElseThrow().getAvailableStock()).isEqualTo(4);
         verify(inventoryStockStore).reserve(anyList());
     }
 
     @Test
     @DisplayName("재고 예약에 실패하면 실패 이벤트를 반환하고 예약 이력을 남기지 않는다.")
     void handlePaymentConfirmedFailure() {
-        inventoryRepository.save(Inventory.of(101L, 1));
+        inventoryRepository.save(Inventory.of(KEYBOARD_PRODUCT_ID, 1));
 
         when(inventoryStockStore.reserve(anyList())).thenReturn(
             InventoryStockStore.ReservationAttempt.failure("INSUFFICIENT_STOCK", "재고가 부족합니다.")
@@ -103,16 +106,16 @@ class InventoryServiceIntegrationTest {
         assertThat(inventoryInboxRepository.findAll().get(0).getProcessStatus()).isEqualTo(InboxProcessStatus.FAILED);
         assertThat(inventoryReservationRepository.findAll()).isEmpty();
         assertThat(inventoryTransactionRepository.findAll()).isEmpty();
-        assertThat(inventoryRepository.findByProductId(101L).orElseThrow().getAvailableStock()).isEqualTo(1);
+        assertThat(inventoryRepository.findByProductId(KEYBOARD_PRODUCT_ID).orElseThrow().getAvailableStock()).isEqualTo(1);
     }
 
     @Test
     @DisplayName("같은 eventId를 다시 처리하면 중복으로 판단하고 재고 저장소를 다시 호출하지 않는다.")
     void ignoreDuplicateEvent() {
-        inventoryRepository.save(Inventory.of(101L, 10));
+        inventoryRepository.save(Inventory.of(KEYBOARD_PRODUCT_ID, 10));
         when(inventoryStockStore.reserve(anyList())).thenReturn(
             InventoryStockStore.ReservationAttempt.success(List.of(
-                new InventoryStockStore.ReservedStock(101L, 2, 10, 8)
+                new InventoryStockStore.ReservedStock(KEYBOARD_PRODUCT_ID, 2, 10, 8)
             ))
         );
 
@@ -140,8 +143,8 @@ class InventoryServiceIntegrationTest {
             "KRW",
             "무선 키보드 외 1건",
             List.of(
-                new PaymentConfirmedEvent.PaymentConfirmedItem(101L, "keyboard", 2, BigDecimal.valueOf(50000), BigDecimal.valueOf(100000)),
-                new PaymentConfirmedEvent.PaymentConfirmedItem(102L, "mouse", 1, BigDecimal.valueOf(30000), BigDecimal.valueOf(30000))
+                new PaymentConfirmedEvent.PaymentConfirmedItem(KEYBOARD_PRODUCT_ID, "keyboard", 2, BigDecimal.valueOf(50000), BigDecimal.valueOf(100000)),
+                new PaymentConfirmedEvent.PaymentConfirmedItem(MOUSE_PRODUCT_ID, "mouse", 1, BigDecimal.valueOf(30000), BigDecimal.valueOf(30000))
             )
         );
     }

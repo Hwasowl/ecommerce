@@ -4,6 +4,7 @@ import com.example.ordersaga.order.application.dto.CreateOrderItemRequest;
 import com.example.ordersaga.order.application.dto.CreateOrderRequest;
 import com.example.ordersaga.order.application.dto.CreateOrderResponse;
 import com.example.ordersaga.order.application.dto.InventoryReservedEvent;
+import com.example.ordersaga.order.application.dto.OrderStatusResponse;
 import com.example.ordersaga.order.application.dto.PaymentCompensatedEvent;
 import com.example.ordersaga.order.domain.Order;
 import com.example.ordersaga.order.domain.OrderStatus;
@@ -40,6 +41,25 @@ public class OrderService {
         orderStatusHistoryRepository.save(OrderStatusHistory.of(orderId, null, order.getStatus(), "ORDER_CREATED", null));
 
         return new CreateOrderResponse(order.getOrderId(), order.getStatus(), order.getTotalAmount(), order.getCurrency());
+    }
+
+    @Transactional(readOnly = true)
+    public OrderStatusResponse getOrderStatus(String orderId) {
+        Order order = orderRepository.findByOrderId(orderId)
+            .orElseThrow(() -> new BusinessException(
+                ErrorCode.ORDER_NOT_FOUND,
+                "주문 정보를 찾을 수 없습니다. orderId=" + orderId
+            ));
+
+        return new OrderStatusResponse(
+            order.getOrderId(),
+            order.getCustomerId(),
+            order.getStatus(),
+            order.getTotalAmount(),
+            order.getCurrency(),
+            order.getCreatedAt(),
+            order.getUpdatedAt()
+        );
     }
 
     @Transactional

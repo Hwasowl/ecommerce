@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -11,9 +12,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.example.ordersaga.payment.api.PaymentController;
 import com.example.ordersaga.payment.application.PaymentService;
 import com.example.ordersaga.payment.application.dto.CreatePaymentResponse;
+import com.example.ordersaga.payment.application.dto.PaymentStatusResponse;
 import com.example.ordersaga.payment.domain.PaymentStatus;
 import com.example.ordersaga.payment.exception.GlobalExceptionHandler;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -139,5 +142,34 @@ class PaymentControllerTest {
             .andExpect(jsonPath("$.code").value("PAYMENT-400"));
 
         verifyNoInteractions(paymentService);
+    }
+
+    @Test
+    @DisplayName("결제 상태 조회 요청이 유효하면 현재 상태를 반환한다.")
+    void getPaymentStatusWhenPaymentExists() throws Exception {
+        when(paymentService.getPaymentStatus("PAY-1001")).thenReturn(
+            new PaymentStatusResponse(
+                "PAY-1001",
+                "ORD-1001",
+                1L,
+                PaymentStatus.CONFIRMED,
+                BigDecimal.valueOf(130000),
+                "KRW",
+                "무선 키보드",
+                "PK-1001",
+                "TOSS_PAYMENTS",
+                LocalDateTime.of(2026, 3, 26, 11, 0),
+                null,
+                LocalDateTime.of(2026, 3, 26, 10, 59),
+                LocalDateTime.of(2026, 3, 26, 11, 0)
+            )
+        );
+
+        mockMvc.perform(get("/api/v1/payments/PAY-1001"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.paymentId").value("PAY-1001"))
+            .andExpect(jsonPath("$.status").value("CONFIRMED"));
+
+        verify(paymentService).getPaymentStatus("PAY-1001");
     }
 }

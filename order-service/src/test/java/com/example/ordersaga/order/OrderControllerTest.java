@@ -4,16 +4,19 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.example.ordersaga.order.application.OrderService;
 import com.example.ordersaga.order.application.dto.CreateOrderResponse;
+import com.example.ordersaga.order.application.dto.OrderStatusResponse;
 import com.example.ordersaga.order.api.OrderController;
 import com.example.ordersaga.order.domain.OrderStatus;
 import com.example.ordersaga.order.exception.GlobalExceptionHandler;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -142,5 +145,28 @@ class OrderControllerTest {
             .andExpect(jsonPath("$.code").value("ORDER-400"));
 
         verifyNoInteractions(orderService);
+    }
+
+    @Test
+    @DisplayName("주문 상태 조회 요청이 유효하면 현재 상태를 반환한다.")
+    void getOrderStatusWhenOrderExists() throws Exception {
+        when(orderService.getOrderStatus("ORD-1001")).thenReturn(
+            new OrderStatusResponse(
+                "ORD-1001",
+                1L,
+                OrderStatus.PAID,
+                BigDecimal.valueOf(50000),
+                "KRW",
+                LocalDateTime.of(2026, 3, 26, 11, 0),
+                LocalDateTime.of(2026, 3, 26, 11, 5)
+            )
+        );
+
+        mockMvc.perform(get("/api/v1/orders/ORD-1001"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.orderId").value("ORD-1001"))
+            .andExpect(jsonPath("$.status").value("PAID"));
+
+        verify(orderService).getOrderStatus("ORD-1001");
     }
 }
